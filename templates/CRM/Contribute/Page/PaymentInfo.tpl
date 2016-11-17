@@ -2,7 +2,7 @@
  +--------------------------------------------------------------------+
  | CiviCRM version 4.7                                                |
  +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2015                                |
+ | Copyright CiviCRM LLC (c) 2004-2016                                |
  +--------------------------------------------------------------------+
  | This file is a part of CiviCRM.                                    |
  |                                                                    |
@@ -69,7 +69,7 @@ CRM.$(function($) {
         </a>
       {/if}
     </td>
-    <td class='right'>{$paymentInfo.balance|crmMoney}</td>
+    <td class="right" id="payment-info-balance" data-balance="{$paymentInfo.balance}">{$paymentInfo.balance|crmMoney}</td>
   </tr>
 </table>
 {if $paymentInfo.balance and !$paymentInfo.payLater}

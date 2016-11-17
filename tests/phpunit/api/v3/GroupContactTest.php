@@ -3,7 +3,7 @@
  +--------------------------------------------------------------------+
  | CiviCRM version 4.7                                                |
  +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2015                                |
+ | Copyright CiviCRM LLC (c) 2004-2016                                |
  +--------------------------------------------------------------------+
  | This file is a part of CiviCRM.                                    |
  |                                                                    |
@@ -194,6 +194,48 @@ class api_v3_GroupContactTest extends CiviUnitTestCase {
     $result = $this->callAPISuccess('group_contact', 'get', $params);
     $this->assertEquals(0, $result['count']);
     $this->assertArrayNotHasKey('id', $result);
+  }
+
+  /**
+   * CRM-19496 When id is used rather than contact_id and group_id ensure that remove function still works.
+   *
+   */
+  public function testDeleteWithId() {
+    $groupContactParams = array(
+      'contact_id' => $this->_contactId,
+      'group_id' => $this->_groupId1,
+    );
+    $groupContact = $this->callAPISuccess('group_contact', 'get', $groupContactParams);
+    $params = array(
+      'id' => $groupContact['id'],
+      'status' => 'Removed',
+    );
+    $result = $this->callAPISuccess('group_contact', 'delete', $params);
+    $this->assertEquals($result['removed'], 1);
+    $this->assertEquals($result['total_count'], 1);
+  }
+
+  /**
+   * CRM-19496 When id is used rather than contact_id and group_id ensure that remove function still works.
+   *
+   */
+  public function testDeleteAndReAddWithId() {
+    $groupContactParams = array(
+      'contact_id' => $this->_contactId,
+      'group_id' => $this->_groupId1,
+    );
+    $groupContact = $this->callAPISuccess('group_contact', 'get', $groupContactParams);
+    $params = array(
+      'id' => $groupContact['id'],
+      'status' => 'Removed',
+    );
+    $result = $this->callAPISuccess('group_contact', 'delete', $params);
+    $this->assertEquals($result['removed'], 1);
+    $this->assertEquals($result['total_count'], 1);
+    $params = array_merge($params, array('status' => 'Added'));
+    $result2 = $this->callAPISuccess('group_contact', 'delete', $params);
+    $this->assertEquals($result2['added'], 1);
+    $this->assertEquals($result2['total_count'], 1);
   }
 
   /**

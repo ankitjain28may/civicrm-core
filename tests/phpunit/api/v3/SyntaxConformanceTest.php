@@ -3,7 +3,7 @@
  +--------------------------------------------------------------------+
  | CiviCRM version 4.7                                                |
  +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2015                                |
+ | Copyright CiviCRM LLC (c) 2004-2016                                |
  +--------------------------------------------------------------------+
  | This file is a part of CiviCRM.                                    |
  |                                                                    |
@@ -91,6 +91,7 @@ class api_v3_SyntaxConformanceTest extends CiviUnitTestCase {
       'System',
       'Setting',
       'Payment',
+      'Logging',
     );
     $this->toBeImplemented['create'] = array(
       'Cxn',
@@ -108,6 +109,7 @@ class api_v3_SyntaxConformanceTest extends CiviUnitTestCase {
       'Payment',
       'Order',
       'SavedSearch', //work fine in local
+      'Logging',
     );
     $this->toBeImplemented['delete'] = array(
       'Cxn',
@@ -343,6 +345,7 @@ class api_v3_SyntaxConformanceTest extends CiviUnitTestCase {
       'CustomValue',
       'Setting',
       'User',
+      'Logging',
     );
     if ($sequential === TRUE) {
       return $entitiesWithout;
@@ -391,6 +394,7 @@ class api_v3_SyntaxConformanceTest extends CiviUnitTestCase {
       'Extension',
       'ReportTemplate',
       'System',
+      'Logging',
     );
     if ($sequential === TRUE) {
       return $entitiesWithoutGet;
@@ -464,6 +468,7 @@ class api_v3_SyntaxConformanceTest extends CiviUnitTestCase {
       'MailingContact',
       'SystemLog',
       //skip this because it doesn't make sense to update logs,
+      'Logging',
     );
     if ($sequential === TRUE) {
       return $entitiesWithout;
@@ -711,7 +716,7 @@ class api_v3_SyntaxConformanceTest extends CiviUnitTestCase {
     }
     $result = civicrm_api($Entity, 'Get', array());
     $this->assertEquals(1, $result['is_error']);
-    $this->assertContains("Mandatory key(s) missing from params array", $result['error_message']);
+    $this->assertContains("Unknown api version", $result['error_message']);
   }
 
   /**
@@ -894,6 +899,7 @@ class api_v3_SyntaxConformanceTest extends CiviUnitTestCase {
     for ($i = 0; $i < 30; $i++) {
       $baoObj = CRM_Core_DAO::createTestObject($baoString, array('currency' => 'USD'));
       $ids[] = $baoObj->id;
+      $baoObj->free();
     }
 
     // each case is array(0 => $inputtedApiOptions, 1 => $expectedResultCount)
@@ -940,6 +946,7 @@ class api_v3_SyntaxConformanceTest extends CiviUnitTestCase {
       for ($i = 0; $i < 3 - $totalEntities; $i++) {
         $baoObj = CRM_Core_DAO::createTestObject($baoString, array('currency' => 'USD'));
         $ids[] = $baoObj->id;
+        $baoObj->free();
       }
       $totalEntities = 3;
     }
@@ -1067,30 +1074,30 @@ class api_v3_SyntaxConformanceTest extends CiviUnitTestCase {
 
   /**
    * @dataProvider entities
-   * @expectedException PHPUnit_Framework_Error
+   * @expectedException CiviCRM_API3_Exception
    * @param $Entity
    */
   public function testWithoutParam_create($Entity) {
+    if ($Entity === 'Setting') {
+      $this->markTestSkipped('It seems OK for setting to skip here as it silently sips invalid params');
+    }
     // should create php complaining that a param is missing
-    $result = civicrm_api($Entity, 'Create');
+    civicrm_api3($Entity, 'Create');
   }
 
   /**
    * @dataProvider entities_create
+   *
+   * Check that create doesn't work with an invalid
    * @param $Entity
    * @throws \PHPUnit_Framework_IncompleteTestError
    */
-  public function testEmptyParam_create($Entity) {
-    $this->markTestIncomplete("fixing this test to test the api functions fails on numerous tests
-      which will either create a completely blank entity (batch, participant status) or
-      have a damn good crack at it (e.g mailing job). Marking this as incomplete beats false success");
-    return;
-    if (in_array($Entity, $this->toBeImplemented['create'])) {
-      // $this->markTestIncomplete("civicrm_api3_{$Entity}_create to be implemented");
-      return;
+  public function testInvalidSort_get($Entity) {
+    $invalidEntitys = array('ActivityType', 'Setting', 'System');
+    if (in_array($Entity, $invalidEntitys)) {
+      $this->markTestSkipped('It seems OK for ' . $Entity . ' to skip here as it silently sips invalid params');
     }
-    $result = $this->callAPIFailure($Entity, 'Create', array());
-    $this->assertContains("Mandatory key(s) missing from params array", $result['error_message']);
+    $result = $this->callAPIFailure($Entity, 'get', array('options' => array('sort' => 'sleep(1)')));
   }
 
   /**
@@ -1290,6 +1297,10 @@ class api_v3_SyntaxConformanceTest extends CiviUnitTestCase {
         //api has special handling on these 2 fields for backward compatibility reasons
         $entity['contribution_type_id'] = $updateParams['financial_type_id'];
       }
+      if (isset($updateParams['next_sched_contribution_date']) && in_array($entityName, array('ContributionRecur'))) {
+        //api has special handling on these 2 fields for backward compatibility reasons
+        $entity['next_sched_contribution'] = $updateParams['next_sched_contribution_date'];
+      }
 
       $update = $this->callAPISuccess($entityName, 'create', $updateParams);
       $checkParams = array(
@@ -1319,6 +1330,10 @@ class api_v3_SyntaxConformanceTest extends CiviUnitTestCase {
         if (isset($updateParams['financial_type_id']) && in_array($entityName, array('Grant'))) {
           //api has special handling on these 2 fields for backward compatibility reasons
           $entity['contribution_type_id'] = $updateParams['financial_type_id'];
+        }
+        if (isset($updateParams['next_sched_contribution_date']) && in_array($entityName, array('ContributionRecur'))) {
+          //api has special handling on these 2 fields for backward compatibility reasons
+          $entity['next_sched_contribution'] = $updateParams['next_sched_contribution_date'];
         }
       }
     }
@@ -1362,7 +1377,7 @@ class api_v3_SyntaxConformanceTest extends CiviUnitTestCase {
     }
     $result = civicrm_api($Entity, 'Delete', array());
     $this->assertEquals(1, $result['is_error']);
-    $this->assertContains("Mandatory key(s) missing from params array", $result['error_message']);
+    $this->assertContains("Unknown api version", $result['error_message']);
   }
 
   /**
@@ -1371,13 +1386,6 @@ class api_v3_SyntaxConformanceTest extends CiviUnitTestCase {
    * @throws \PHPUnit_Framework_IncompleteTestError
    */
   public function testInvalidID_delete($Entity) {
-    // turn test off for now
-    $this->markTestIncomplete("Entity [ $Entity ] cannot be mocked - no known DAO");
-    return;
-    if (in_array($Entity, $this->toBeImplemented['delete'])) {
-      // $this->markTestIncomplete("civicrm_api3_{$Entity}_delete to be implemented");
-      return;
-    }
     $result = $this->callAPIFailure($Entity, 'Delete', array('id' => 999));
   }
 

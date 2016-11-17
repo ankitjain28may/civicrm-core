@@ -3,7 +3,7 @@
  * +--------------------------------------------------------------------+
  * | CiviCRM version 4.7                                                |
  * +--------------------------------------------------------------------+
- * | Copyright CiviCRM LLC (c) 2004-2015                                |
+ * | Copyright CiviCRM LLC (c) 2004-2016                                |
  * +--------------------------------------------------------------------+
  * | This file is a part of CiviCRM.                                    |
  * |                                                                    |
@@ -40,6 +40,23 @@ class api_v3_NavigationTest extends CiviUnitTestCase {
    */
   public function testGet() {
     $this->callAPISuccess($this->_entity, 'getsingle', array('label' => 'Manage Groups', 'domain_id' => 1));
+  }
+
+  /**
+   * Test get specifying parent
+   */
+  public function testGetByParent() {
+    // get by name
+    $this->callAPISuccess($this->_entity, 'get', array('parentID' => 'Administer', 'domain_id' => 1));
+
+    $params = array(
+      'name' => 'Administer',
+      'domain_id' => 1,
+      'return' => 'id',
+    );
+    $adminId = $this->callAPISuccess($this->_entity, 'getvalue', $params);
+
+    $this->callAPISuccess($this->_entity, 'get', array('parentID' => $adminId, 'domain_id' => 1));
   }
 
   /**

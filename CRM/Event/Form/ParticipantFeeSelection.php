@@ -3,7 +3,7 @@
  +--------------------------------------------------------------------+
  | CiviCRM version 4.7                                                |
  +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2015                                |
+ | Copyright CiviCRM LLC (c) 2004-2016                                |
  +--------------------------------------------------------------------+
  | This file is a part of CiviCRM.                                    |
  |                                                                    |
@@ -28,7 +28,7 @@
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2015
+ * @copyright CiviCRM LLC (c) 2004-2016
  * $Id$
  *
  */
@@ -278,7 +278,7 @@ class CRM_Event_Form_ParticipantFeeSelection extends CRM_Core_Form {
    * @return mixed
    */
   public function emailReceipt(&$params) {
-    $updatedLineItem = CRM_Price_BAO_LineItem::getLineItems($this->_participantId, 'participant', NULL, FALSE);
+    $updatedLineItem = CRM_Price_BAO_LineItem::getLineItems($this->_participantId, 'participant', FALSE, FALSE);
     $lineItem = array();
     if ($updatedLineItem) {
       $lineItem[] = $updatedLineItem;

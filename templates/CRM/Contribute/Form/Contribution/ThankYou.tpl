@@ -2,7 +2,7 @@
  +--------------------------------------------------------------------+
  | CiviCRM version 4.7                                                |
  +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2015                                |
+ | Copyright CiviCRM LLC (c) 2004-2016                                |
  +--------------------------------------------------------------------+
  | This file is a part of CiviCRM.                                    |
  |                                                                    |
@@ -79,7 +79,7 @@
         <div>
           {if $onBehalfEmail AND ($onBehalfEmail neq $email)}
             {ts 1=$email 2=$onBehalfEmail}An email receipt has also been sent to %1 and to %2{/ts}
-          {else}
+          {elseif $email}
             {ts 1=$email}An email receipt has also been sent to %1{/ts}
           {/if}
         </div>
@@ -188,7 +188,7 @@
     </div>
   {/if}
 
-  {if $onbehalfProfile|@count && $is_for_organization}
+  {if $onbehalfProfile|@count}
     <div class="crm-group onBehalf_display-group label-left crm-profile-view">
       {include file="CRM/UF/Form/Block.tpl" fields=$onbehalfProfile prefix='onbehalf'}
      </div>

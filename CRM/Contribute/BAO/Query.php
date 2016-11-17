@@ -3,7 +3,7 @@
  +--------------------------------------------------------------------+
  | CiviCRM version 4.7                                                |
  +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2015                                |
+ | Copyright CiviCRM LLC (c) 2004-2016                                |
  +--------------------------------------------------------------------+
  | This file is a part of CiviCRM.                                    |
  |                                                                    |
@@ -28,9 +28,9 @@
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2015
+ * @copyright CiviCRM LLC (c) 2004-2016
  */
-class CRM_Contribute_BAO_Query {
+class CRM_Contribute_BAO_Query extends CRM_Core_BAO_Query {
 
   /**
    * Static field for all the export/import contribution fields.
@@ -239,7 +239,7 @@ class CRM_Contribute_BAO_Query {
     // Adding address_id in a way that is more easily extendable since the above is a bit ... wordy.
     $supportedBasicReturnValues = array('address_id');
     foreach ($supportedBasicReturnValues as $fieldName) {
-      if (!empty($query->_returnProperties[$fieldName])) {
+      if (!empty($query->_returnProperties[$fieldName]) && empty($query->_select[$fieldName])) {
         $query->_select[$fieldName] = "civicrm_contribution.{$fieldName} as $fieldName";
         $query->_element[$fieldName] = $query->_tables['civicrm_contribution'] = 1;
       }
@@ -825,7 +825,7 @@ class CRM_Contribute_BAO_Query {
                SELECT con.id as id, con.contact_id, cso.id as filter_id, NULL as scredit_id
                  FROM civicrm_contribution con
             LEFT JOIN civicrm_contribution_soft cso ON con.id = cso.contribution_id
-             GROUP BY id, contact_id, scredit_id
+             GROUP BY id, contact_id, scredit_id, cso.id
             UNION ALL
                SELECT scredit.contribution_id as id, scredit.contact_id, scredit.id as filter_id, scredit.id as scredit_id
                  FROM civicrm_contribution_soft as scredit";
@@ -886,6 +886,8 @@ class CRM_Contribute_BAO_Query {
       // on what field to show instead.
       'contribution_product_id' => 1,
       'product_name' => 1,
+      'currency' => 1,
+      'cancel_date' => 1,
     );
     if (self::isSoftCreditOptionEnabled()) {
       $properties = array_merge($properties, self::softCreditReturnProperties());
@@ -1111,19 +1113,7 @@ class CRM_Contribute_BAO_Query {
       FALSE, array('class' => 'crm-select2', 'multiple' => 'multiple', 'placeholder' => ts('- any -'))
     );
 
-    // Add all the custom searchable fields
-    $contribution = array('Contribution');
-    $groupDetails = CRM_Core_BAO_CustomGroup::getGroupDetail(NULL, TRUE, $contribution);
-    if ($groupDetails) {
-      $form->assign('contributeGroupTree', $groupDetails);
-      foreach ($groupDetails as $group) {
-        foreach ($group['fields'] as $field) {
-          $fieldId = $field['id'];
-          $elementName = 'custom_' . $fieldId;
-          CRM_Core_BAO_CustomField::addQuickFormElement($form, $elementName, $fieldId, FALSE, TRUE);
-        }
-      }
-    }
+    self::addCustomFormFields($form, array('Contribution'));
 
     CRM_Campaign_BAO_Campaign::addCampaignInComponentSearch($form, 'contribution_campaign_id');
 
@@ -1142,15 +1132,6 @@ class CRM_Contribute_BAO_Query {
     $form->setDefaults(array('contribution_test' => 0));
 
     CRM_Contribute_BAO_ContributionRecur::recurringContribution($form);
-  }
-
-  /**
-   * Function that may not be needed.
-   *
-   * @param array $row
-   * @param int $id
-   */
-  public static function searchAction(&$row, $id) {
   }
 
   /**

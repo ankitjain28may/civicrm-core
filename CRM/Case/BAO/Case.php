@@ -3,7 +3,7 @@
  +--------------------------------------------------------------------+
  | CiviCRM version 4.7                                                |
  +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2015                                |
+ | Copyright CiviCRM LLC (c) 2004-2016                                |
  +--------------------------------------------------------------------+
  | This file is a part of CiviCRM.                                    |
  |                                                                    |
@@ -28,7 +28,7 @@
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2015
+ * @copyright CiviCRM LLC (c) 2004-2016
  */
 
 /**
@@ -458,7 +458,6 @@ t_act.act_type AS case_activity_type ";
       FROM civicrm_view_case_activity_upcoming
       ORDER BY activity_date_time ASC, id ASC
       ) AS upcomingOrdered
-    GROUP BY case_id
     ) AS act
   LEFT JOIN civicrm_option_group aog ON aog.name='activity_type'
   LEFT JOIN civicrm_option_value aov ON ( aov.option_group_id = aog.id AND aov.value = act.activity_type_id )
@@ -478,7 +477,6 @@ t_act.act_type AS case_activity_type ";
       FROM civicrm_view_case_activity_recent
       ORDER BY activity_date_time DESC, id ASC
       ) AS recentOrdered
-    GROUP BY case_id
     ) AS act
 LEFT JOIN civicrm_option_group aog ON aog.name='activity_type'
   LEFT JOIN civicrm_option_value aov ON ( aov.option_group_id = aog.id AND aov.value = act.activity_type_id )
@@ -759,6 +757,7 @@ AND civicrm_case.status_id != $closedId";
       $myCaseWhereClause = " AND case_relationship.contact_id_b = {$userID}";
       $myGroupByClause = " GROUP BY CONCAT(case_relationship.case_id,'-',case_relationship.contact_id_b)";
     }
+    $myGroupByClause .= ", case_status.label, status_id, case_type_id";
 
     // FIXME: This query could be a lot more efficient if it used COUNT() instead of returning all rows and then counting them with php
     $query = "
@@ -775,7 +774,7 @@ SELECT case_status.label AS case_status, status_id, civicrm_case_type.title AS c
  WHERE is_deleted = 0 AND cc.contact_id IN (SELECT id FROM civicrm_contact WHERE is_deleted <> 1)
 {$myCaseWhereClause} {$myGroupByClause}";
 
-    $res = CRM_Core_DAO::executeQuery($query, CRM_Core_DAO::$_nullArray);
+    $res = CRM_Core_DAO::executeQuery($query);
     while ($res->fetch()) {
       if (!empty($rows[$res->case_type]) && !empty($rows[$res->case_type][$res->case_status])) {
         $rows[$res->case_type][$res->case_status]['count'] = $rows[$res->case_type][$res->case_status]['count'] + 1;
@@ -986,7 +985,7 @@ SELECT case_status.label AS case_status, status_id, civicrm_case_type.title AS c
     }
 
     $groupBy = "
-         GROUP BY ca.id ";
+         GROUP BY ca.id, tcc.id, scc.id, acc.id, ov.value";
 
     $sortBy = CRM_Utils_Array::value('sortBy', $params);
     if (!$sortBy) {
@@ -1193,19 +1192,9 @@ SELECT case_status.label AS case_status, status_id, civicrm_case_type.title AS c
       }
       // if there are file attachments we will return how many and, if only one, add a link to it
       if (!empty($dao->attachment_ids)) {
-        $attachmentIDs = explode(',', $dao->attachment_ids);
+        $attachmentIDs = array_unique(explode(',', $dao->attachment_ids));
         $caseActivity['no_attachments'] = count($attachmentIDs);
-        if ($caseActivity['no_attachments'] == 1) {
-          // if there is only one it's easy to do a link - otherwise just flag it
-          $attachmentViewUrl = CRM_Utils_System::url(
-            "civicrm/file",
-            "reset=1&eid=" . $caseActivityId . "&id=" . $dao->attachment_ids,
-            FALSE,
-            NULL,
-            FALSE
-          );
-          $url .= " <a href='$attachmentViewUrl' ><i class='crm-i fa-paperclip'></i></a>";
-        }
+        $url .= implode(' ', CRM_Core_BAO_File::paperIconAttachment('civicrm_activity', $caseActivityId));
       }
 
       $caseActivity['links'] = $url;
@@ -1246,8 +1235,7 @@ SELECT case_status.label AS case_status, status_id, civicrm_case_type.title AS c
       LEFT JOIN civicrm_email ce
         ON ce.contact_id = cc.id
         AND ce.is_primary= 1
-      WHERE cr.case_id =  %1
-      GROUP BY cc.id';
+      WHERE cr.case_id =  %1';
 
     $params = array(1 => array($caseID, 'Integer'));
     $dao = CRM_Core_DAO::executeQuery($query, $params);
@@ -1562,7 +1550,7 @@ SELECT case_status.label AS case_status, status_id, civicrm_case_type.title AS c
 
     $query = self::getCaseActivityQuery($type, $userID, $condition, $cases['case_deleted']);
 
-    $res = CRM_Core_DAO::executeQuery($query, CRM_Core_DAO::$_nullArray);
+    $res = CRM_Core_DAO::executeQuery($query);
 
     $activityInfo = array();
     while ($res->fetch()) {
@@ -1732,7 +1720,7 @@ SELECT case_status.label AS case_status, status_id, civicrm_case_type.title AS c
       if (!empty($criteriaParams['activity_type_id'])) {
         $where .= " AND ca.activity_type_id    = " . CRM_Utils_Type::escape($criteriaParams['activity_type_id'], 'Integer');
         $where .= " AND ca.is_current_revision = 1";
-        $groupBy .= " GROUP BY ca.activity_type_id";
+        $groupBy .= " GROUP BY ca.activity_type_id, ca.id";
       }
 
       if (!empty($criteriaParams['newest'])) {
@@ -1800,8 +1788,8 @@ SELECT case_status.label AS case_status, status_id, civicrm_case_type.title AS c
     $dao = CRM_Core_DAO::executeQuery($query, $queryParam);
 
     while ($dao->fetch()) {
-      //to get valid assignee contact(s).
-      if (isset($dao->caseId) || $dao->rel_contact_id != $contactId) {
+      // The assignee is not the client.
+      if ($dao->rel_contact_id != $contactId) {
         $caseRelationship = $dao->relation_a_b;
         $assigneContactName = $dao->clientName;
         $assigneContactIds[$dao->rel_contact_id] = $dao->rel_contact_id;
@@ -1901,7 +1889,7 @@ SELECT civicrm_contact.id as casemanager_id,
    * @param int $contactId
    * @param bool $excludeDeleted
    *
-   * @return null|string
+   * @return int
    */
   public static function caseCount($contactId = NULL, $excludeDeleted = TRUE) {
     $params = array('check_permissions' => TRUE);
@@ -1911,7 +1899,13 @@ SELECT civicrm_contact.id as casemanager_id,
     if ($contactId) {
       $params['contact_id'] = $contactId;
     }
-    return civicrm_api3('Case', 'getcount', $params);
+    try {
+      return civicrm_api3('Case', 'getcount', $params);
+    }
+    catch (CiviCRM_API3_Exception $e) {
+      // Lack of permissions will throw an exception
+      return 0;
+    }
   }
 
   /**
@@ -2134,7 +2128,7 @@ SELECT civicrm_contact.id as casemanager_id,
             $from = ' FROM ' . $tableName;
             $where = " WHERE {$tableName}.entity_id = {$otherCaseId}";
             $query = $insert . $select . $from . $where;
-            $dao = CRM_Core_DAO::executeQuery($query, CRM_Core_DAO::$_nullArray);
+            $dao = CRM_Core_DAO::executeQuery($query);
           }
         }
 
@@ -2542,12 +2536,18 @@ WHERE id IN (' . implode(',', $copiedActivityIds) . ')';
     if (in_array($operation, $caseActOperations)) {
       static $caseCount;
       if (!isset($caseCount)) {
-        $caseCount = civicrm_api3('Case', 'getcount', array(
-          'check_permissions' => TRUE,
-          'status_id' => array('!=' => 'Closed'),
-          'is_deleted' => 0,
-          'end_date' => array('IS NULL' => 1),
-        ));
+        try {
+          $caseCount = civicrm_api3('Case', 'getcount', array(
+            'check_permissions' => TRUE,
+            'status_id' => array('!=' => 'Closed'),
+            'is_deleted' => 0,
+            'end_date' => array('IS NULL' => 1),
+          ));
+        }
+        catch (CiviCRM_API3_Exception $e) {
+          // Lack of permissions will throw an exception
+          $caseCount = 0;
+        }
       }
       if ($operation == 'File On Case') {
         $allow = !empty($caseCount);
@@ -2793,7 +2793,13 @@ WHERE id IN (' . implode(',', $copiedActivityIds) . ')';
     if ($denyClosed && !CRM_Core_Permission::check('access all cases and activities')) {
       $params['status_id'] = array('!=' => 'Closed');
     }
-    return (bool) civicrm_api3('Case', 'getcount', $params);
+    try {
+      return (bool) civicrm_api3('Case', 'getcount', $params);
+    }
+    catch (CiviCRM_API3_Exception $e) {
+      // Lack of permissions will throw an exception
+      return FALSE;
+    }
   }
 
   /**
@@ -2985,8 +2991,12 @@ WHERE id IN (' . implode(',', $copiedActivityIds) . ')';
  AS SELECT ca.case_id, a.id, a.activity_date_time, a.status_id, a.activity_type_id
  FROM civicrm_case_activity ca
  INNER JOIN civicrm_activity a ON ca.activity_id=a.id
- WHERE a.activity_date_time <= DATE_ADD( NOW(), INTERVAL 14 DAY )
- AND a.is_current_revision = 1 AND a.is_deleted=0 AND a.status_id = $scheduled_id";
+ WHERE a.activity_date_time = 
+(SELECT b.activity_date_time FROM civicrm_case_activity bca
+ INNER JOIN civicrm_activity b ON bca.activity_id=b.id
+ WHERE b.activity_date_time <= DATE_ADD( NOW(), INTERVAL 14 DAY )
+ AND b.is_current_revision = 1 AND b.is_deleted=0 AND b.status_id = $scheduled_id
+ AND bca.case_id = ca.case_id ORDER BY b.activity_date_time ASC LIMIT 1)";
         break;
 
       case 'recent':
@@ -2994,9 +3004,12 @@ WHERE id IN (' . implode(',', $copiedActivityIds) . ')';
  AS SELECT ca.case_id, a.id, a.activity_date_time, a.status_id, a.activity_type_id
  FROM civicrm_case_activity ca
  INNER JOIN civicrm_activity a ON ca.activity_id=a.id
- WHERE a.activity_date_time <= NOW()
- AND a.activity_date_time >= DATE_SUB( NOW(), INTERVAL 14 DAY )
- AND a.is_current_revision = 1 AND a.is_deleted=0 AND a.status_id <> $scheduled_id";
+ WHERE a.activity_date_time = 
+(SELECT b.activity_date_time FROM civicrm_case_activity bca
+ INNER JOIN civicrm_activity b ON bca.activity_id=b.id
+ WHERE b.activity_date_time >= DATE_SUB( NOW(), INTERVAL 14 DAY )
+ AND b.is_current_revision = 1 AND b.is_deleted=0 AND b.status_id <> $scheduled_id
+ AND bca.case_id = ca.case_id ORDER BY b.activity_date_time DESC LIMIT 1)";
         break;
     }
     return $sql;

@@ -3,7 +3,7 @@
  +--------------------------------------------------------------------+
  | CiviCRM version 4.7                                                |
  +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2015                                |
+ | Copyright CiviCRM LLC (c) 2004-2016                                |
  +--------------------------------------------------------------------+
  | This file is a part of CiviCRM.                                    |
  |                                                                    |
@@ -28,7 +28,7 @@
 /**
  *
  * @package CRM
- * @copyright CiviCRM LLC (c) 2004-2015
+ * @copyright CiviCRM LLC (c) 2004-2016
  */
 
 require_once 'Mail.php';
@@ -450,6 +450,12 @@ VALUES (%1, %2, %3, %4, %5, %6, %7)
       $params = array();
       $count = 0;
       while ($recipients->fetch()) {
+        // CRM-18543: there are situations when both the email and phone are null.
+        // Skip the recipient in this case.
+        if (empty($recipients->email_id) && empty($recipients->phone_id)) {
+          continue;
+        }
+
         if ($recipients->phone_id) {
           $recipients->email_id = "null";
         }

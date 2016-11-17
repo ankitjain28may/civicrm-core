@@ -2,7 +2,7 @@
  +--------------------------------------------------------------------+
  | CiviCRM version 4.7                                                |
  +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2015                                |
+ | Copyright CiviCRM LLC (c) 2004-2016                                |
  +--------------------------------------------------------------------+
  | This file is a part of CiviCRM.                                    |
  |                                                                    |
@@ -153,6 +153,12 @@
 
   cj('form[name=Participant]').on("click", '.validate',
     function(e) {
+      if (CRM.$('#total_amount').length == 0) {
+        var $balance = CRM.$('#payment-info-balance');
+        if ($balance.length > 0 && parseFloat($balance.attr('data-balance')) == 0) {
+          return true;
+        }
+      }
       var userSubmittedStatus = cj('#status_id').val();
       var statusLabel = cj('#status_id option:selected').text();
       if (userModifiedAmount < feeAmount && userSubmittedStatus != partiallyPaidStatusId) {
@@ -424,7 +430,7 @@
         }
 
         {/literal}
-        CRM.buildCustomData( '{$customDataType}', 'null', 'null' );
+        CRM.buildCustomData( '{$customDataType}', null, null );
         {if $eventID}
           CRM.buildCustomData( '{$customDataType}', {$eventID}, {$eventNameCustomDataTypeID} );
         {/if}

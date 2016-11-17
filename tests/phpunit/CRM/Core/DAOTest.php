@@ -225,4 +225,56 @@ class CRM_Core_DAOTest extends CiviUnitTestCase {
     $this->assertTrue($exception_thrown);
   }
 
+  /**
+   * requireSafeDBName() method (to check valid database name)
+   */
+  public function testRequireSafeDBName() {
+    $databases = array(
+      'testdb' => TRUE,
+      'test_db' => TRUE,
+      'TEST_db' => TRUE,
+      '123testdb' => TRUE,
+      'test12db34' => TRUE,
+      'test_12_db34' => TRUE,
+      'test-db' => TRUE,
+      'test;db' => FALSE,
+      'test*&db' => FALSE,
+      'testdb;Delete test' => FALSE,
+      '123456' => FALSE,
+      'test#$%^&*' => FALSE,
+    );
+    $testDetails = array();
+    foreach ($databases as $database => $val) {
+      $this->assertEquals(CRM_Core_DAO::requireSafeDBName($database), $val);
+    }
+  }
+
+  /**
+   * Test the function designed to find myIsam tables.
+   */
+  public function testMyISAMCheck() {
+    // Cleanup previous, failed tests.
+    CRM_Core_DAO::executeQuery('DROP TABLE IF EXISTS civicrm_my_isam');
+
+    // A manually created MyISAM table should raise a redflag.
+    $this->assertEquals(0, CRM_Core_DAO::isDBMyISAM());
+    CRM_Core_DAO::executeQuery('CREATE TABLE civicrm_my_isam (`id` int(10) unsigned NOT NULL) ENGINE = MyISAM');
+    $this->assertEquals(1, CRM_Core_DAO::isDBMyISAM());
+    CRM_Core_DAO::executeQuery('DROP TABLE civicrm_my_isam');
+
+    // A temp table should not raise flag (static naming).
+    $tempName = CRM_Core_DAO::createTempTableName('civicrm', FALSE);
+    $this->assertEquals(0, CRM_Core_DAO::isDBMyISAM());
+    CRM_Core_DAO::executeQuery("CREATE TABLE $tempName (`id` int(10) unsigned NOT NULL) ENGINE = MyISAM");
+    $this->assertEquals(0, CRM_Core_DAO::isDBMyISAM()); // Ignore temp tables
+    CRM_Core_DAO::executeQuery("DROP TABLE $tempName");
+
+    // A temp table should not raise flag (randomized naming).
+    $tempName = CRM_Core_DAO::createTempTableName('civicrm', TRUE);
+    $this->assertEquals(0, CRM_Core_DAO::isDBMyISAM());
+    CRM_Core_DAO::executeQuery("CREATE TABLE $tempName (`id` int(10) unsigned NOT NULL) ENGINE = MyISAM");
+    $this->assertEquals(0, CRM_Core_DAO::isDBMyISAM()); // Ignore temp tables
+    CRM_Core_DAO::executeQuery("DROP TABLE $tempName");
+  }
+
 }

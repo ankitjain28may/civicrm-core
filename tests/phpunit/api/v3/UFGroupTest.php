@@ -3,7 +3,7 @@
  +--------------------------------------------------------------------+
  | CiviCRM version 4.7                                                |
  +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2015                                |
+ | Copyright CiviCRM LLC (c) 2004-2016                                |
  +--------------------------------------------------------------------+
  | This file is a part of CiviCRM.                                    |
  |                                                                    |
@@ -125,10 +125,6 @@ class api_v3_UFGroupTest extends CiviUnitTestCase {
       }
       $expected = $this->params[$key];
       $received = $result['values'][$result['id']][$key];
-      // group names are renamed to name_id by BAO
-      if ($key == 'name') {
-        $expected = $this->params[$key] . '_' . $result['id'];
-      }
       $this->assertEquals($expected, $received, "The string '$received' does not equal '$expected' for key '$key' in line " . __LINE__);
     }
   }
@@ -187,16 +183,12 @@ class api_v3_UFGroupTest extends CiviUnitTestCase {
       }
       $expected = $this->params[$key];
       $received = $result['values'][$result['id']][$key];
-      // group names are renamed to name_id by BAO
-      if ($key == 'name') {
-        $expected = $this->params[$key] . '_' . $result['id'];
-      }
       $this->assertEquals($expected, $received, "The string '$received' does not equal '$expected' for key '$key' in line " . __LINE__);
     }
   }
 
   public function testUFGroupUpdateWithEmptyParams() {
-    $result = $this->callAPIFailure('uf_group', 'create', array(), $this->_ufGroupId);
+    $result = $this->callAPIFailure('uf_group', 'create', array(), 'Mandatory key(s) missing from params array: title');
   }
 
   public function testUFGroupDelete() {

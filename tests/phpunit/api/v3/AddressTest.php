@@ -3,7 +3,7 @@
  +--------------------------------------------------------------------+
  | CiviCRM version 4.7                                                |
  +--------------------------------------------------------------------+
- | Copyright CiviCRM LLC (c) 2004-2015                                |
+ | Copyright CiviCRM LLC (c) 2004-2016                                |
  +--------------------------------------------------------------------+
  | This file is a part of CiviCRM.                                    |
  |                                                                    |
@@ -346,6 +346,22 @@ class api_v3_AddressTest extends CiviUnitTestCase {
     ));
     $this->assertEquals(1, $check);
     $this->callAPISuccess('address', 'delete', array('id' => $address1['id']));
+  }
+
+  public function testGetWithJoin() {
+    $cid = $this->individualCreate(array(
+      'api.Address.create' => array(
+        'street_address' => __FUNCTION__,
+        'location_type_id' => $this->_locationType->id,
+      ),
+    ));
+    $result = $this->callAPISuccess('address', 'getsingle', array(
+      'check_permissions' => TRUE,
+      'contact_id' => $cid,
+      'street_address' => __FUNCTION__,
+      'return' => 'contact_id.contact_type',
+    ));
+    $this->assertEquals('Individual', $result['contact_id.contact_type']);
   }
 
 }
